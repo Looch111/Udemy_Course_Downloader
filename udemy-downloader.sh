@@ -6,35 +6,61 @@
 
 set -uo pipefail
 
-# ── Colors ───────────────────────────────────────────────────────
-C='\033[0;36m'   # Cyan
-G='\033[0;32m'   # Green
-Y='\033[1;33m'   # Yellow
-R='\033[0;31m'   # Red
-M='\033[0;35m'   # Magenta
-W='\033[1;37m'   # Bold White
-D='\033[2m'      # Dim
-B='\033[1m'      # Bold
-N='\033[0m'      # Reset
+# ── Color System (TrueColor with fallback) ───────────────────────
+if [[ "${COLORTERM:-}" == "truecolor" || "${COLORTERM:-}" == "24bit" || "${TERM:-}" == *"256"* || "${TERM:-}" == "xterm-kitty" || "${TERM:-}" == "alacritty" ]]; then
+  C1="\033[38;2;0;210;255m"      # Electric Cyan
+  C2="\033[38;2;168;85;247m"    # Purple Accent
+  G="\033[38;2;34;197;94m"       # Emerald Green
+  Y="\033[38;2;245;158;11m"     # Amber Gold
+  R="\033[38;2;239;68;68m"       # Rose Red
+  W="\033[1;37m"                 # Bold White
+  D="\033[38;2;148;163;184m"     # Slate Dim
+  B="\033[1m"                    # Bold
+  N="\033[0m"                    # Reset
+else
+  C1="\033[1;36m"
+  C2="\033[1;35m"
+  G="\033[1;32m"
+  Y="\033[1;33m"
+  R="\033[1;31m"
+  W="\033[1;37m"
+  D="\033[2m"
+  B="\033[1m"
+  N="\033[0m"
+fi
 
-# ── Helpers ──────────────────────────────────────────────────────
+# ── UI Helpers ───────────────────────────────────────────────────
 banner() {
   clear
-  echo -e "${C}"
-  echo "  ╔══════════════════════════════════════════════════════╗"
-  echo "  ║   🎓  U D E M Y   C O U R S E   D O W N L O A D E R  ║"
-  echo "  ║          v4.0  •  Created by Kadiri Emmanuel         ║"
-  echo "  ╚══════════════════════════════════════════════════════╝"
-  echo -e "${N}"
+  echo -e ""
+  echo -e "${C1}╭──────────────────────────────────────────────────────────╮${N}"
+  echo -e "${C1}│   ${W}🎓  U D E M Y   C O U R S E   D O W N L O A D E R${C1}      │${N}"
+  echo -e "${C1}│       ${C2}v4.0  •  Created by Kadiri Emmanuel${C1}                │${N}"
+  echo -e "${C1}╰──────────────────────────────────────────────────────────╯${N}"
+  echo -e ""
 }
 
-sec()  { echo -e "\n${M}${B}━━  $1  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"; }
-ok()   { echo -e "  ${G}✔${N}  $*"; }
-info() { echo -e "  ${C}➤${N}  $*"; }
-warn() { echo -e "  ${Y}⚠${N}  $*"; }
-err()  { echo -e "  ${R}✘${N}  $*" >&2; }
+sec() {
+  local title="$1"
+  local step="${2:-}"
+  echo -e ""
+  if [[ -n "$step" ]]; then
+    echo -e "${C1}╭─ [ Step ${step} ] ── ${W}${title}${C1} $(printf '─%.0s' $(seq 1 $((40 - ${#title} - ${#step}))))╮${N}"
+  else
+    echo -e "${C1}╭── ${W}${title}${C1} $(printf '─%.0s' $(seq 1 $((50 - ${#title}))))╮${N}"
+  fi
+}
+
+card_end() {
+  echo -e "${C1}╰──────────────────────────────────────────────────────────╯${N}"
+}
+
+ok()   { echo -e "  ${G}✔${N}  ${W}$*${N}"; }
+info() { echo -e "  ${C1}➤${N}  ${D}$*${N}"; }
+warn() { echo -e "  ${Y}⚠${N}  ${Y}$*${N}"; }
+err()  { echo -e "  ${R}✘${N}  ${R}$*${N}" >&2; }
 die()  { err "$*"; exit 1; }
-line() { echo -e "${D}  ─────────────────────────────────────────────────${N}"; }
+line() { echo -e "${D}  ─────────────────────────────────────────────────────────${N}"; }
 br()   { echo ""; }
 
 ask() {
@@ -45,14 +71,6 @@ ask() {
   local _val
   read -r _val
   [[ -z "$_val" && -n "$_def" ]] && _val="$_def"
-  printf -v "$_var" '%s' "$_val"
-}
-
-ask_secret() {
-  local _var="$1" _msg="$2"
-  echo -en "  ${Y}→${N}  ${W}${_msg}${N}: "
-  local _val
-  read -rs _val; echo
   printf -v "$_var" '%s' "$_val"
 }
 
@@ -67,14 +85,15 @@ export PATH="$LOCAL_BIN:$PATH"
 #  STEP 2 — AUTO INSTALL DEPENDENCIES
 # ════════════════════════════════════════════════════════════════
 install_deps() {
-  sec "Checking Tools"
+  sec "Checking Tools & Environment" "1/5"
+  br
 
   # ── yt-dlp ─────────────────────────────────────────────────
   if command -v yt-dlp &>/dev/null; then
-    ok "yt-dlp $(yt-dlp --version) — already installed. Updating..."
+    ok "yt-dlp ${D}($(yt-dlp --version))${N} — installed & ready."
     yt-dlp --update-to stable &>/dev/null || true
   else
-    info "Installing yt-dlp..."
+    info "Installing yt-dlp CLI tool..."
     if curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp" \
         -o "$LOCAL_BIN/yt-dlp" && chmod +x "$LOCAL_BIN/yt-dlp"; then
       ok "yt-dlp installed successfully."
@@ -83,11 +102,11 @@ install_deps() {
     fi
   fi
 
-  # ── ffmpeg (BtbN build — no segfaults) ─────────────────────
+  # ── ffmpeg ─────────────────────────────────────────────────
   if command -v ffmpeg &>/dev/null; then
-    ok "ffmpeg is available."
+    ok "ffmpeg multimedia engine — available."
   else
-    info "ffmpeg not found. Downloading stable static build..."
+    info "Downloading static ffmpeg engine..."
     local arch url dir
     arch=$(uname -m)
     if [[ "$arch" == "x86_64" ]]; then
@@ -101,18 +120,18 @@ install_deps() {
       return
     fi
 
-    info "Downloading from GitHub BtbN builds (~120 MB)..."
     if curl -fsSL "$url" -o /tmp/ffmpeg.tar.xz; then
       tar -xf /tmp/ffmpeg.tar.xz -C /tmp
       cp "/tmp/${dir}/bin/ffmpeg"  "$LOCAL_BIN/ffmpeg"
       cp "/tmp/${dir}/bin/ffprobe" "$LOCAL_BIN/ffprobe"
       chmod +x "$LOCAL_BIN/ffmpeg" "$LOCAL_BIN/ffprobe"
       rm -rf "/tmp/${dir}" /tmp/ffmpeg.tar.xz
-      ok "ffmpeg installed successfully."
+      ok "ffmpeg engine installed successfully."
     else
       warn "ffmpeg download failed. Videos will still download but won't be merged."
     fi
   fi
+  br
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -122,9 +141,9 @@ BROWSER=""
 COOKIES_FILE=""
 
 select_browser() {
-  sec "Browser Login Session"
-  echo -e "  ${D}Pick the browser where you are logged into Udemy.${N}"
-  echo -e "  ${D}The script reads your login session directly from it.${N}"
+  sec "Browser Authentication" "2/5"
+  echo -e "  ${D}Select the browser where you are logged into Udemy.${N}"
+  echo -e "  ${D}Your login session will be extracted automatically.${N}"
   br
 
   local names=()
@@ -138,13 +157,13 @@ select_browser() {
   [[ -d "$HOME/.config/opera" ]]          && names+=("Opera")           && keys+=("opera")
   [[ -d "$HOME/.config/vivaldi" ]]        && names+=("Vivaldi")         && keys+=("vivaldi")
 
-  # Always add manual option
+  # Manual option
   names+=("Use a cookies.txt file instead")
   keys+=("custom")
 
   local i=1
   for name in "${names[@]}"; do
-    echo -e "    ${C}[$i]${N}  $name"
+    echo -e "    ${C1}[$i]${N}  $name"
     ((i++))
   done
   line; br
@@ -166,7 +185,7 @@ select_browser() {
     echo -e "  ${D}How to get cookies.txt:${N}"
     echo -e "  ${D}  1. Install 'Get cookies.txt LOCALLY' extension in Chrome/Firefox${N}"
     echo -e "  ${D}  2. Log into udemy.com${N}"
-    echo -e "  ${D}  3. Click the extension → Export cookies for udemy.com${N}"
+    echo -e "  ${D}  3. Click extension → Export cookies for udemy.com${N}"
     br
     while true; do
       ask COOKIES_FILE "Path to cookies.txt file"
@@ -175,8 +194,9 @@ select_browser() {
       err "File not found. Try again."
     done
   else
-    ok "Browser selected: ${names[$((choice-1))]}"
+    ok "Browser session selected: ${W}${names[$((choice-1))]}${N}"
   fi
+  br
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -185,26 +205,26 @@ select_browser() {
 COURSE_URL=""
 
 get_url() {
-  sec "Course URL"
-  echo -e "  ${D}1. Open Udemy in your browser and go to any lecture in the course.${N}"
-  echo -e "  ${D}2. Copy the URL from the address bar.${N}"
-  echo -e "  ${D}3. Paste it below (any Udemy course URL format works).${N}"
+  sec "Course Target URL" "3/5"
+  echo -e "  ${D}1. Open Udemy in your browser and go to your course.${N}"
+  echo -e "  ${D}2. Copy the URL from your address bar.${N}"
+  echo -e "  ${D}3. Paste it below.${N}"
   br
 
   while true; do
-    ask COURSE_URL "Paste course URL"
+    ask COURSE_URL "Paste Udemy Course URL"
 
     if [[ "$COURSE_URL" == *"udemy.com/course/"* ]]; then
-      # Extract just the base course slug and append /learn/ (required for yt-dlp)
       if [[ "$COURSE_URL" =~ (https?://(www\.)?udemy\.com/course/[^/?#]+) ]]; then
         COURSE_URL="${BASH_REMATCH[1]}/learn/"
       fi
-      ok "Course URL: $COURSE_URL"
+      ok "Course URL: ${W}$COURSE_URL${N}"
       break
     else
-      err "That doesn't look like a Udemy course URL. It must contain 'udemy.com/course/'"
+      err "Invalid Udemy course URL. Must contain 'udemy.com/course/'"
     fi
   done
+  br
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -215,20 +235,20 @@ QUALITY="best"
 SUBTITLE_MODE="both"
 
 get_options() {
-  sec "Download Options"
+  sec "Download Preferences" "4/5"
   br
 
   ask OUTPUT_DIR "Save downloads to" "$OUTPUT_DIR"
   OUTPUT_DIR="${OUTPUT_DIR/#\~/$HOME}"
   mkdir -p "$OUTPUT_DIR" || die "Cannot create directory: $OUTPUT_DIR"
-  ok "Output: $OUTPUT_DIR"
+  ok "Output directory: ${W}$OUTPUT_DIR${N}"
   br
 
   echo -e "  ${W}Video quality:${N}"
-  echo -e "    ${C}[1]${N}  Best available (recommended)"
-  echo -e "    ${C}[2]${N}  1080p"
-  echo -e "    ${C}[3]${N}  720p  (smaller files)"
-  echo -e "    ${C}[4]${N}  480p  (much smaller)"
+  echo -e "    ${C1}[1]${N}  Best available (Recommended)"
+  echo -e "    ${C1}[2]${N}  1080p Full HD"
+  echo -e "    ${C1}[3]${N}  720p HD (Smaller file size)"
+  echo -e "    ${C1}[4]${N}  480p SD (Low bandwidth)"
   line
   local q
   echo -en "  ${Y}→${N}  Choose [1-4]: "
@@ -239,14 +259,14 @@ get_options() {
     4) QUALITY="480p"  ;;
     *) QUALITY="best"  ;;
   esac
-  ok "Quality: $QUALITY"
+  ok "Quality setting: ${W}$QUALITY${N}"
   br
 
   echo -e "  ${W}Subtitles preference:${N}"
-  echo -e "    ${C}[1]${N}  Both embedded in MP4 AND saved as separate .vtt file (recommended)"
-  echo -e "    ${C}[2]${N}  Embedded in MP4 only (no extra files)"
-  echo -e "    ${C}[3]${N}  Separate .vtt file only"
-  echo -e "    ${C}[4]${N}  No subtitles"
+  echo -e "    ${C1}[1]${N}  Both embedded in MP4 AND saved as separate .vtt file (Recommended)"
+  echo -e "    ${C1}[2]${N}  Embedded in MP4 only (Clean single file)"
+  echo -e "    ${C1}[3]${N}  Separate .vtt file only"
+  echo -e "    ${C1}[4]${N}  No subtitles"
   line
   local s
   echo -en "  ${Y}→${N}  Choose [1-4]: "
@@ -257,15 +277,16 @@ get_options() {
     4) SUBTITLE_MODE="none" ;;
     *) SUBTITLE_MODE="both" ;;
   esac
-  ok "Subtitles: $SUBTITLE_MODE"
+  ok "Subtitle mode: ${W}$SUBTITLE_MODE${N}"
+  br
 }
 
 # ════════════════════════════════════════════════════════════════
 #  STEP 6 — SESSION VERIFICATION & DOWNLOAD
 # ════════════════════════════════════════════════════════════════
 verify_session() {
-  sec "Session Verification"
-  info "Validating login session & Cloudflare clearance..."
+  sec "Session & Cloudflare Validation" "5/5"
+  info "Validating login session & Cloudflare clearance tokens..."
 
   local TEST_ARGS=()
   if [[ "$BROWSER" == "custom" ]]; then
@@ -295,13 +316,13 @@ verify_session() {
       warn "Udemy returned HTTP Error 403: Forbidden (Cloudflare bot check)."
       br
       echo -e "  ${Y}Why this happens:${N}"
-      echo -e "  ${D}  • Your browser's Cloudflare security clearance cookie (__cf_bm / cf_clearance) expired.${N}"
+      echo -e "  ${D}  • Your browser's Cloudflare clearance cookie expired.${N}"
       echo -e "  ${D}  • Or the browser database was locked while open.${N}"
       br
       echo -e "  ${Y}Quick Fix (takes 10 seconds):${N}"
       echo -e "  ${W}  1. Open your browser ($BROWSER) and visit https://www.udemy.com${N}"
       echo -e "  ${W}  2. Click on any lecture in the course to refresh Cloudflare tokens.${N}"
-      echo -e "  ${W}  3. Return here and choose [1] to retry.${N}"
+      echo -e "  ${W}  3. Return here and press [1] to retry.${N}"
       br
     elif grep -qi "not free\|pay for it" "$TEST_LOG"; then
       err "This course is not enrolled or purchased on this Udemy account."
@@ -311,9 +332,9 @@ verify_session() {
     rm -f "$TEST_LOG"
 
     echo -e "  ${W}What would you like to do?${N}"
-    echo -e "    ${C}[1]${N}  Retry session check (after refreshing browser)"
-    echo -e "    ${C}[2]${N}  Switch browser / cookies.txt"
-    echo -e "    ${C}[3]${N}  Exit"
+    echo -e "    ${C1}[1]${N}  Retry session check (after refreshing browser)"
+    echo -e "    ${C1}[2]${N}  Switch browser / cookies.txt"
+    echo -e "    ${C1}[3]${N}  Exit"
     line
     local choice
     echo -en "  ${Y}→${N}  Choose [1-3]: "
@@ -327,22 +348,22 @@ verify_session() {
 }
 
 run_download() {
-  sec "Summary"
-  br
-  echo -e "  ${W}Course URL  :${N}  $COURSE_URL"
+  sec "Configuration Summary"
+  echo -e "  ${C1}•${N} ${W}Course URL  :${N} ${D}$COURSE_URL${N}"
   if [[ "$BROWSER" == "custom" ]]; then
-    echo -e "  ${W}Auth        :${N}  cookies.txt → $COOKIES_FILE"
+    echo -e "  ${C1}•${N} ${W}Auth Source :${N} ${D}cookies.txt → $COOKIES_FILE${N}"
   else
-    echo -e "  ${W}Auth        :${N}  Browser → $BROWSER"
+    echo -e "  ${C1}•${N} ${W}Auth Source :${N} ${D}Browser → $BROWSER${N}"
   fi
-  echo -e "  ${W}Quality     :${N}  $QUALITY"
-  echo -e "  ${W}Subtitles   :${N}  $SUBTITLE_MODE"
-  echo -e "  ${W}Save to     :${N}  $OUTPUT_DIR"
-  br; line; br
+  echo -e "  ${C1}•${N} ${W}Video Quality:${N} ${D}$QUALITY${N}"
+  echo -e "  ${C1}•${N} ${W}Subtitles   :${N} ${D}$SUBTITLE_MODE${N}"
+  echo -e "  ${C1}•${N} ${W}Save Folder :${N} ${D}$OUTPUT_DIR${N}"
+  line
+  br
 
-  echo -en "  ${Y}→${N}  ${W}Start download? [Y/n]:${N} "
+  echo -en "  ${Y}→${N}  ${W}Start course download now? [Y/n]:${N} "
   local confirm; read -r confirm
-  [[ "${confirm,,}" == "n" ]] && { info "Cancelled."; exit 0; }
+  [[ "${confirm,,}" == "n" ]] && { info "Download cancelled by user."; exit 0; }
 
   # ── Build quality format string ───────────────────────────
   local fmt
@@ -434,17 +455,17 @@ run_download() {
   ARGS+=("$COURSE_URL")
 
   # ── Run with auto-retry on SSL/network errors ─────────────
-  sec "Downloading"
+  sec "Download Progress Dashboard"
   local LOG="/tmp/udemy-dl-$$.log"
   local max_tries=3
   local try=1
   local exit_code=0
 
-  info "Logs saved to: $LOG"
+  info "Log audit file: $LOG"
   br
 
   # Graceful Ctrl+C
-  trap 'br; warn "Download paused. Run script again to resume — already downloaded files are kept."; exit 130' INT
+  trap 'br; warn "Download paused. Re-run script to resume — downloaded files are saved."; exit 130' INT
 
   while (( try <= max_tries )); do
     exit_code=0
@@ -452,7 +473,7 @@ run_download() {
 
     local lect_num="?" lect_total="?" lect_name="Initializing..."
 
-    # Stream yt-dlp output through a clean parser
+    # Stream yt-dlp output through progress parser
     while IFS= read -r line; do
       echo "$line" >> "$LOG"
 
@@ -462,19 +483,19 @@ run_download() {
         local spd="${BASH_REMATCH[2]//[[:space:]]/}"
         local eta="${BASH_REMATCH[3]//[[:space:]]/}"
         [[ -z "$pct" || "$pct" == " " ]] && pct=0
-        local fill=$(( pct / 10 )) empty=$(( 10 - pct / 10 ))
+        local fill=$(( pct / 5 )) empty=$(( 20 - fill ))
         local bar=""
         for (( i=0; i<fill;  i++ )); do bar+="█"; done
         for (( i=0; i<empty; i++ )); do bar+="░"; done
-        # Neat, compact layout fitting in ~75 chars max
-        printf "\r\033[K  ${C}[%s/%s]${N} %3d%% [${G}%s${N}] %-9s │ ETA %-5s │ %.22s" \
+
+        printf "\r\033[K  ${C1}[%s/%s]${N} %3d%% [${G}%s${N}] ${C2}%-9s${N} │ ETA ${Y}%-5s${N} │ ${D}%.22s${N}" \
           "$lect_num" "$lect_total" "$pct" "$bar" "$spd" "$eta" "$lect_name"
 
       # Lecture counter
       elif [[ "$line" =~ \[download\]\ Downloading\ item\ ([0-9]+)\ of\ ([0-9]+) ]]; then
         lect_num="${BASH_REMATCH[1]}"
         lect_total="${BASH_REMATCH[2]}"
-        lect_name="Fetching..."
+        lect_name="Fetching details..."
         printf "\r\033[K  ${Y}↓  Lecture %s/%s...${N}" "$lect_num" "$lect_total"
 
       # Capture lecture name from Destination line
@@ -483,11 +504,11 @@ run_download() {
 
       # Merger status
       elif [[ "$line" =~ \[Merger\]|\[ffmpeg\] ]]; then
-        printf "\r\033[K  ${M}⚙  Processing: %.30s${N}" "$lect_name"
+        printf "\r\033[K  ${C2}⚙  Merging & Embedding: %.30s${N}" "$lect_name"
 
       # Catch fatal errors (not per-lecture skips)
       elif [[ "$line" =~ ^ERROR:.*unable\ to\ download\ webpage|^ERROR:.*HTTP\ Error\ 4 ]]; then
-        printf "\n  ${R}✘  Fatal: %s${N}\n" "${line:7:80}"
+        printf "\n  ${R}✘  Fatal Error: %s${N}\n" "${line:7:80}"
         exit_code=1
       fi
 
@@ -507,9 +528,9 @@ run_download() {
     if [[ "$exit_code" -ne 0 ]]; then
       if grep -qiE 'ssl|eof|connection reset|network|timed? ?out|HTTP Error 5' "$LOG" 2>/dev/null; then
         br
-        warn "Network/SSL error detected on attempt $try/$max_tries."
+        warn "Network drop detected on attempt $try/$max_tries."
         if (( try < max_tries )); then
-          warn "Retrying in 8 seconds..."
+          warn "Retrying download connection in 8 seconds..."
           sleep 8
           (( try++ ))
           continue
@@ -522,28 +543,29 @@ run_download() {
 
   br; br
   if [[ "$exit_code" -eq 0 ]]; then
-    echo -e "${G}"
-    echo "  ╔══════════════════════════════════════════════════════╗"
-    echo "  ║   🎉  All done! Course downloaded successfully.      ║"
-    echo "  ╚══════════════════════════════════════════════════════╝"
-    echo -e "${N}"
-    ok "Files saved to: ${W}${OUTPUT_DIR}${N}"
-    br
+    echo -e "${C1}╭──────────────────────────────────────────────────────────╮${N}"
+    echo -e "${C1}│   ${G}🎉  ALL LECTURES DOWNLOADED & MERGED SUCCESSFULLY!     ${C1}│${N}"
+    echo -e "${C1}│                                                          │${N}"
+    echo -e "${C1}│   ${W}📁 Saved to  :${N} ${D}${OUTPUT_DIR}${C1} $(printf ' %.0s' $(seq 1 $((34 - ${#OUTPUT_DIR}))))│${N}"
+    echo -e "${C1}│   ${W}👤 Author    :${N} ${C2}Kadiri Emmanuel${C1}                       │${N}"
+    echo -e "${C1}│   ${W}⚡ Status    :${N} ${G}Verified & Ready for Offline Playback${C1}   │${N}"
+    echo -e "${C1}╰──────────────────────────────────────────────────────────╯${N}"
+    echo -e ""
   else
-    err "Download finished with errors (exit $exit_code)."
-    err "Log file: $LOG"
+    err "Download process encountered errors (exit code $exit_code)."
+    err "Log details saved in: $LOG"
     br
     echo -e "  ${Y}Common fixes:${N}"
-    echo -e "  ${D}  1. Open Udemy in your browser ($BROWSER) and click any lecture to refresh session.${N}"
-    echo -e "  ${D}  2. Confirm you are enrolled/purchased this course.${N}"
-    echo -e "  ${D}  3. Try running: yt-dlp --update${N}"
+    echo -e "  ${D}  1. Open Udemy in browser ($BROWSER) and click any lecture to refresh session.${N}"
+    echo -e "  ${D}  2. Confirm you are enrolled in this course.${N}"
+    echo -e "  ${D}  3. Run: yt-dlp --update${N}"
     br
     exit 1
   fi
 }
 
 # ════════════════════════════════════════════════════════════════
-#  MAIN
+#  MAIN EXECUTION
 # ════════════════════════════════════════════════════════════════
 banner
 install_deps
