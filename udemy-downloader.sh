@@ -492,7 +492,16 @@ run_download() {
       fi
 
     done < <(yt-dlp "${ARGS[@]}" 2>&1); local pipe_exit="${PIPESTATUS[0]:-0}"
-    [[ "$pipe_exit" -ne 0 ]] && exit_code="$pipe_exit"
+
+    # If yt-dlp returned non-zero due to skipped non-video items (quizzes/articles),
+    # but no true fatal errors occurred, treat the download as successful.
+    if [[ "$pipe_exit" -ne 0 && "$exit_code" -eq 0 ]]; then
+      if grep -qiE 'ERROR:.*unable to download webpage|ERROR:.*HTTP Error 403|ERROR:.*Forbidden' "$LOG"; then
+        exit_code=1
+      else
+        exit_code=0
+      fi
+    fi
 
     # Check if we should retry (SSL / network drop)
     if [[ "$exit_code" -ne 0 ]]; then
