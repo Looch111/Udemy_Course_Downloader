@@ -29,45 +29,47 @@ else
   N="\033[0m"
 fi
 
-# ── UI Helpers ───────────────────────────────────────────────────
+# ── UI Single-Frame Helpers ──────────────────────────────────────
 banner() {
   clear
   echo -e ""
   echo -e "${C1}╭──────────────────────────────────────────────────────────╮${N}"
   echo -e "${C1}│   ${W}🎓  U D E M Y   C O U R S E   D O W N L O A D E R${C1}      │${N}"
   echo -e "${C1}│       ${C2}v4.0  •  Created by Kadiri Emmanuel${C1}                │${N}"
-  echo -e "${C1}╰──────────────────────────────────────────────────────────╯${N}"
-  echo -e ""
+  echo -e "${C1}├──────────────────────────────────────────────────────────┤${N}"
 }
 
 sec() {
   local title="$1"
   local step="${2:-}"
-  echo -e ""
+  echo -e "${C1}│${N}"
   if [[ -n "$step" ]]; then
-    echo -e "${C1}╭─ [ Step ${step} ] ── ${W}${title}${C1} $(printf '─%.0s' $(seq 1 $((40 - ${#title} - ${#step}))))╮${N}"
+    echo -e "${C1}│${N}  ${C2}[ STEP ${step} ]${N}  ${W}${title}${N}"
   else
-    echo -e "${C1}╭── ${W}${title}${C1} $(printf '─%.0s' $(seq 1 $((50 - ${#title}))))╮${N}"
+    echo -e "${C1}│${N}  ${W}${title}${N}"
   fi
+  echo -e "${C1}│${N}"
 }
 
 card_end() {
+  echo -e "${C1}│${N}"
   echo -e "${C1}╰──────────────────────────────────────────────────────────╯${N}"
+  echo -e ""
 }
 
-ok()   { echo -e "  ${G}✔${N}  ${W}$*${N}"; }
-info() { echo -e "  ${C1}➤${N}  ${D}$*${N}"; }
-warn() { echo -e "  ${Y}⚠${N}  ${Y}$*${N}"; }
-err()  { echo -e "  ${R}✘${N}  ${R}$*${N}" >&2; }
-die()  { err "$*"; exit 1; }
-line() { echo -e "${D}  ─────────────────────────────────────────────────────────${N}"; }
-br()   { echo ""; }
+ok()   { echo -e "${C1}│${N}  ${G}✔${N}  ${W}$*${N}"; }
+info() { echo -e "${C1}│${N}  ${C1}➤${N}  ${D}$*${N}"; }
+warn() { echo -e "${C1}│${N}  ${Y}⚠${N}  ${Y}$*${N}"; }
+err()  { echo -e "${C1}│${N}  ${R}✘${N}  ${R}$*${N}" >&2; }
+die()  { err "$*"; card_end; exit 1; }
+line() { echo -e "${C1}│${N}  ${D}─────────────────────────────────────────────────────────${N}"; }
+br()   { echo -e "${C1}│${N}"; }
 
 ask() {
   local _var="$1" _msg="$2" _def="${3:-}"
   local _hint=""
   [[ -n "$_def" ]] && _hint=" ${D}[${_def}]${N}"
-  echo -en "  ${Y}→${N}  ${W}${_msg}${N}${_hint}: "
+  echo -en "${C1}│${N}  ${Y}→${N}  ${W}${_msg}${N}${_hint}: "
   local _val
   read -r _val
   [[ -z "$_val" && -n "$_def" ]] && _val="$_def"
@@ -85,8 +87,8 @@ export PATH="$LOCAL_BIN:$PATH"
 #  STEP 2 — AUTO INSTALL DEPENDENCIES
 # ════════════════════════════════════════════════════════════════
 install_deps() {
+  banner
   sec "Checking Tools & Environment" "1/5"
-  br
 
   # ── yt-dlp ─────────────────────────────────────────────────
   if command -v yt-dlp &>/dev/null; then
@@ -117,6 +119,7 @@ install_deps() {
       dir="ffmpeg-master-latest-linuxarm64-gpl"
     else
       warn "Unsupported CPU arch ($arch). ffmpeg skipped — videos may not merge."
+      card_end
       return
     fi
 
@@ -131,7 +134,7 @@ install_deps() {
       warn "ffmpeg download failed. Videos will still download but won't be merged."
     fi
   fi
-  br
+  card_end
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -141,9 +144,10 @@ BROWSER=""
 COOKIES_FILE=""
 
 select_browser() {
+  banner
   sec "Browser Authentication" "2/5"
-  echo -e "  ${D}Select the browser where you are logged into Udemy.${N}"
-  echo -e "  ${D}Your login session will be extracted automatically.${N}"
+  info "Select the browser where you are logged into Udemy."
+  info "Your login session will be extracted automatically."
   br
 
   local names=()
@@ -163,14 +167,14 @@ select_browser() {
 
   local i=1
   for name in "${names[@]}"; do
-    echo -e "    ${C1}[$i]${N}  $name"
+    echo -e "${C1}│${N}    ${C1}[$i]${N}  $name"
     ((i++))
   done
   line; br
 
   local choice
   while true; do
-    echo -en "  ${Y}→${N}  Choose [1-$((i-1))]: "
+    echo -en "${C1}│${N}  ${Y}→${N}  Choose [1-$((i-1))]: "
     read -r choice
     if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice < i )); then
       local idx=$(( choice - 1 ))
@@ -182,10 +186,10 @@ select_browser() {
 
   if [[ "$BROWSER" == "custom" ]]; then
     br
-    echo -e "  ${D}How to get cookies.txt:${N}"
-    echo -e "  ${D}  1. Install 'Get cookies.txt LOCALLY' extension in Chrome/Firefox${N}"
-    echo -e "  ${D}  2. Log into udemy.com${N}"
-    echo -e "  ${D}  3. Click extension → Export cookies for udemy.com${N}"
+    info "How to get cookies.txt:"
+    info "  1. Install 'Get cookies.txt LOCALLY' extension in Chrome/Firefox"
+    info "  2. Log into udemy.com"
+    info "  3. Click extension → Export cookies for udemy.com"
     br
     while true; do
       ask COOKIES_FILE "Path to cookies.txt file"
@@ -196,7 +200,7 @@ select_browser() {
   else
     ok "Browser session selected: ${W}${names[$((choice-1))]}${N}"
   fi
-  br
+  card_end
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -205,10 +209,10 @@ select_browser() {
 COURSE_URL=""
 
 get_url() {
+  banner
   sec "Course Target URL" "3/5"
-  echo -e "  ${D}1. Open Udemy in your browser and go to your course.${N}"
-  echo -e "  ${D}2. Copy the URL from your address bar.${N}"
-  echo -e "  ${D}3. Paste it below.${N}"
+  info "1. Open Udemy in your browser and go to your course."
+  info "2. Copy the URL from your address bar and paste it below."
   br
 
   while true; do
@@ -224,7 +228,7 @@ get_url() {
       err "Invalid Udemy course URL. Must contain 'udemy.com/course/'"
     fi
   done
-  br
+  card_end
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -235,8 +239,8 @@ QUALITY="best"
 SUBTITLE_MODE="both"
 
 get_options() {
+  banner
   sec "Download Preferences" "4/5"
-  br
 
   ask OUTPUT_DIR "Save downloads to" "$OUTPUT_DIR"
   OUTPUT_DIR="${OUTPUT_DIR/#\~/$HOME}"
@@ -244,14 +248,14 @@ get_options() {
   ok "Output directory: ${W}$OUTPUT_DIR${N}"
   br
 
-  echo -e "  ${W}Video quality:${N}"
-  echo -e "    ${C1}[1]${N}  Best available (Recommended)"
-  echo -e "    ${C1}[2]${N}  1080p Full HD"
-  echo -e "    ${C1}[3]${N}  720p HD (Smaller file size)"
-  echo -e "    ${C1}[4]${N}  480p SD (Low bandwidth)"
+  echo -e "${C1}│${N}  ${W}Video quality:${N}"
+  echo -e "${C1}│${N}    ${C1}[1]${N}  Best available (Recommended)"
+  echo -e "${C1}│${N}    ${C1}[2]${N}  1080p Full HD"
+  echo -e "${C1}│${N}    ${C1}[3]${N}  720p HD (Smaller file size)"
+  echo -e "${C1}│${N}    ${C1}[4]${N}  480p SD (Low bandwidth)"
   line
   local q
-  echo -en "  ${Y}→${N}  Choose [1-4]: "
+  echo -en "${C1}│${N}  ${Y}→${N}  Choose [1-4]: "
   read -r q
   case "$q" in
     2) QUALITY="1080p" ;;
@@ -262,14 +266,14 @@ get_options() {
   ok "Quality setting: ${W}$QUALITY${N}"
   br
 
-  echo -e "  ${W}Subtitles preference:${N}"
-  echo -e "    ${C1}[1]${N}  Both embedded in MP4 AND saved as separate .vtt file (Recommended)"
-  echo -e "    ${C1}[2]${N}  Embedded in MP4 only (Clean single file)"
-  echo -e "    ${C1}[3]${N}  Separate .vtt file only"
-  echo -e "    ${C1}[4]${N}  No subtitles"
+  echo -e "${C1}│${N}  ${W}Subtitles preference:${N}"
+  echo -e "${C1}│${N}    ${C1}[1]${N}  Both embedded in MP4 AND saved as separate .vtt file (Recommended)"
+  echo -e "${C1}│${N}    ${C1}[2]${N}  Embedded in MP4 only (Clean single file)"
+  echo -e "${C1}│${N}    ${C1}[3]${N}  Separate .vtt file only"
+  echo -e "${C1}│${N}    ${C1}[4]${N}  No subtitles"
   line
   local s
-  echo -en "  ${Y}→${N}  Choose [1-4]: "
+  echo -en "${C1}│${N}  ${Y}→${N}  Choose [1-4]: "
   read -r s
   case "$s" in
     2) SUBTITLE_MODE="embed" ;;
@@ -278,13 +282,14 @@ get_options() {
     *) SUBTITLE_MODE="both" ;;
   esac
   ok "Subtitle mode: ${W}$SUBTITLE_MODE${N}"
-  br
+  card_end
 }
 
 # ════════════════════════════════════════════════════════════════
 #  STEP 6 — SESSION VERIFICATION & DOWNLOAD
 # ════════════════════════════════════════════════════════════════
 verify_session() {
+  banner
   sec "Session & Cloudflare Validation" "5/5"
   info "Validating login session & Cloudflare clearance tokens..."
 
@@ -308,6 +313,7 @@ verify_session() {
   if yt-dlp "${TEST_ARGS[@]}" "$COURSE_URL" > /dev/null 2>"$TEST_LOG"; then
     ok "Session verified! Access to Udemy granted."
     rm -f "$TEST_LOG"
+    card_end
     return 0
   else
     br
@@ -315,14 +321,10 @@ verify_session() {
     if grep -qi "403: Forbidden" "$TEST_LOG"; then
       warn "Udemy returned HTTP Error 403: Forbidden (Cloudflare bot check)."
       br
-      echo -e "  ${Y}Why this happens:${N}"
-      echo -e "  ${D}  • Your browser's Cloudflare clearance cookie expired.${N}"
-      echo -e "  ${D}  • Or the browser database was locked while open.${N}"
-      br
-      echo -e "  ${Y}Quick Fix (takes 10 seconds):${N}"
-      echo -e "  ${W}  1. Open your browser ($BROWSER) and visit https://www.udemy.com${N}"
-      echo -e "  ${W}  2. Click on any lecture in the course to refresh Cloudflare tokens.${N}"
-      echo -e "  ${W}  3. Return here and press [1] to retry.${N}"
+      info "Quick Fix (takes 10 seconds):"
+      info "  1. Open your browser ($BROWSER) and visit https://www.udemy.com"
+      info "  2. Click on any lecture in the course to refresh Cloudflare tokens."
+      info "  3. Return here and press [1] to retry."
       br
     elif grep -qi "not free\|pay for it" "$TEST_LOG"; then
       err "This course is not enrolled or purchased on this Udemy account."
@@ -331,39 +333,40 @@ verify_session() {
     fi
     rm -f "$TEST_LOG"
 
-    echo -e "  ${W}What would you like to do?${N}"
-    echo -e "    ${C1}[1]${N}  Retry session check (after refreshing browser)"
-    echo -e "    ${C1}[2]${N}  Switch browser / cookies.txt"
-    echo -e "    ${C1}[3]${N}  Exit"
+    echo -e "${C1}│${N}  ${W}What would you like to do?${N}"
+    echo -e "${C1}│${N}    ${C1}[1]${N}  Retry session check (after refreshing browser)"
+    echo -e "${C1}│${N}    ${C1}[2]${N}  Switch browser / cookies.txt"
+    echo -e "${C1}│${N}    ${C1}[3]${N}  Exit"
     line
     local choice
-    echo -en "  ${Y}→${N}  Choose [1-3]: "
+    echo -en "${C1}│${N}  ${Y}→${N}  Choose [1-3]: "
     read -r choice
     case "$choice" in
-      2) select_browser; verify_session ;;
-      3) info "Exiting."; exit 1 ;;
-      *) verify_session ;;
+      2) card_end; select_browser; verify_session ;;
+      3) info "Exiting."; card_end; exit 1 ;;
+      *) card_end; verify_session ;;
     esac
   fi
 }
 
 run_download() {
+  banner
   sec "Configuration Summary"
-  echo -e "  ${C1}•${N} ${W}Course URL  :${N} ${D}$COURSE_URL${N}"
+  echo -e "${C1}│${N}  ${C1}•${N} ${W}Course URL  :${N} ${D}$COURSE_URL${N}"
   if [[ "$BROWSER" == "custom" ]]; then
-    echo -e "  ${C1}•${N} ${W}Auth Source :${N} ${D}cookies.txt → $COOKIES_FILE${N}"
+    echo -e "${C1}│${N}  ${C1}•${N} ${W}Auth Source :${N} ${D}cookies.txt → $COOKIES_FILE${N}"
   else
-    echo -e "  ${C1}•${N} ${W}Auth Source :${N} ${D}Browser → $BROWSER${N}"
+    echo -e "${C1}│${N}  ${C1}•${N} ${W}Auth Source :${N} ${D}Browser → $BROWSER${N}"
   fi
-  echo -e "  ${C1}•${N} ${W}Video Quality:${N} ${D}$QUALITY${N}"
-  echo -e "  ${C1}•${N} ${W}Subtitles   :${N} ${D}$SUBTITLE_MODE${N}"
-  echo -e "  ${C1}•${N} ${W}Save Folder :${N} ${D}$OUTPUT_DIR${N}"
+  echo -e "${C1}│${N}  ${C1}•${N} ${W}Video Quality:${N} ${D}$QUALITY${N}"
+  echo -e "${C1}│${N}  ${C1}•${N} ${W}Subtitles   :${N} ${D}$SUBTITLE_MODE${N}"
+  echo -e "${C1}│${N}  ${C1}•${N} ${W}Save Folder :${N} ${D}$OUTPUT_DIR${N}"
   line
   br
 
-  echo -en "  ${Y}→${N}  ${W}Start course download now? [Y/n]:${N} "
+  echo -en "${C1}│${N}  ${Y}→${N}  ${W}Start course download now? [Y/n]:${N} "
   local confirm; read -r confirm
-  [[ "${confirm,,}" == "n" ]] && { info "Download cancelled by user."; exit 0; }
+  [[ "${confirm,,}" == "n" ]] && { info "Download cancelled by user."; card_end; exit 0; }
 
   # ── Build quality format string ───────────────────────────
   local fmt
@@ -455,7 +458,8 @@ run_download() {
   ARGS+=("$COURSE_URL")
 
   # ── Run with auto-retry on SSL/network errors ─────────────
-  sec "Download Progress Dashboard"
+  banner
+  sec "Live Download Progress Dashboard"
   local LOG="/tmp/udemy-dl-$$.log"
   local max_tries=3
   local try=1
@@ -465,7 +469,7 @@ run_download() {
   br
 
   # Graceful Ctrl+C
-  trap 'br; warn "Download paused. Re-run script to resume — downloaded files are saved."; exit 130' INT
+  trap 'br; warn "Download paused. Re-run script to resume — downloaded files are saved."; card_end; exit 130' INT
 
   while (( try <= max_tries )); do
     exit_code=0
@@ -488,7 +492,7 @@ run_download() {
         for (( i=0; i<fill;  i++ )); do bar+="█"; done
         for (( i=0; i<empty; i++ )); do bar+="░"; done
 
-        printf "\r\033[K  ${C1}[%s/%s]${N} %3d%% [${G}%s${N}] ${C2}%-9s${N} │ ETA ${Y}%-5s${N} │ ${D}%.22s${N}" \
+        printf "\r\033[K${C1}│${N}  ${C1}[%s/%s]${N} %3d%% [${G}%s${N}] ${C2}%-9s${N} │ ETA ${Y}%-5s${N} │ ${D}%.22s${N}" \
           "$lect_num" "$lect_total" "$pct" "$bar" "$spd" "$eta" "$lect_name"
 
       # Lecture counter
@@ -496,7 +500,7 @@ run_download() {
         lect_num="${BASH_REMATCH[1]}"
         lect_total="${BASH_REMATCH[2]}"
         lect_name="Fetching details..."
-        printf "\r\033[K  ${Y}↓  Lecture %s/%s...${N}" "$lect_num" "$lect_total"
+        printf "\r\033[K${C1}│${N}  ${Y}↓  Lecture %s/%s...${N}" "$lect_num" "$lect_total"
 
       # Capture lecture name from Destination line
       elif [[ "$line" =~ \[download\]\ Destination:\ .*/([^/]+)\.mp4$ ]]; then
@@ -504,11 +508,11 @@ run_download() {
 
       # Merger status
       elif [[ "$line" =~ \[Merger\]|\[ffmpeg\] ]]; then
-        printf "\r\033[K  ${C2}⚙  Merging & Embedding: %.30s${N}" "$lect_name"
+        printf "\r\033[K${C1}│${N}  ${C2}⚙  Merging & Embedding: %.30s${N}" "$lect_name"
 
       # Catch fatal errors (not per-lecture skips)
       elif [[ "$line" =~ ^ERROR:.*unable\ to\ download\ webpage|^ERROR:.*HTTP\ Error\ 4 ]]; then
-        printf "\n  ${R}✘  Fatal Error: %s${N}\n" "${line:7:80}"
+        printf "\n${C1}│${N}  ${R}✘  Fatal Error: %s${N}\n" "${line:7:80}"
         exit_code=1
       fi
 
@@ -543,23 +547,22 @@ run_download() {
 
   br; br
   if [[ "$exit_code" -eq 0 ]]; then
-    echo -e "${C1}╭──────────────────────────────────────────────────────────╮${N}"
-    echo -e "${C1}│   ${G}🎉  ALL LECTURES DOWNLOADED & MERGED SUCCESSFULLY!     ${C1}│${N}"
-    echo -e "${C1}│                                                          │${N}"
-    echo -e "${C1}│   ${W}📁 Saved to  :${N} ${D}${OUTPUT_DIR}${C1} $(printf ' %.0s' $(seq 1 $((34 - ${#OUTPUT_DIR}))))│${N}"
-    echo -e "${C1}│   ${W}👤 Author    :${N} ${C2}Kadiri Emmanuel${C1}                       │${N}"
-    echo -e "${C1}│   ${W}⚡ Status    :${N} ${G}Verified & Ready for Offline Playback${C1}   │${N}"
-    echo -e "${C1}╰──────────────────────────────────────────────────────────╯${N}"
-    echo -e ""
+    banner
+    echo -e "${C1}│${N}   ${G}🎉  ALL LECTURES DOWNLOADED & MERGED SUCCESSFULLY!     ${N}"
+    echo -e "${C1}│${N}"
+    echo -e "${C1}│${N}   ${W}📁 Saved to  :${N} ${D}${OUTPUT_DIR}${N}"
+    echo -e "${C1}│${N}   ${W}👤 Author    :${N} ${C2}Kadiri Emmanuel${N}"
+    echo -e "${C1}│${N}   ${W}⚡ Status    :${N} ${G}Verified & Ready for Offline Playback${N}"
+    card_end
   else
     err "Download process encountered errors (exit code $exit_code)."
     err "Log details saved in: $LOG"
     br
-    echo -e "  ${Y}Common fixes:${N}"
-    echo -e "  ${D}  1. Open Udemy in browser ($BROWSER) and click any lecture to refresh session.${N}"
-    echo -e "  ${D}  2. Confirm you are enrolled in this course.${N}"
-    echo -e "  ${D}  3. Run: yt-dlp --update${N}"
-    br
+    info "Common fixes:"
+    info "  1. Open Udemy in browser ($BROWSER) and click any lecture to refresh session."
+    info "  2. Confirm you are enrolled in this course."
+    info "  3. Run: yt-dlp --update"
+    card_end
     exit 1
   fi
 }
@@ -567,7 +570,6 @@ run_download() {
 # ════════════════════════════════════════════════════════════════
 #  MAIN EXECUTION
 # ════════════════════════════════════════════════════════════════
-banner
 install_deps
 select_browser
 get_url
