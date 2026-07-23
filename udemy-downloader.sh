@@ -29,47 +29,58 @@ else
   N="\033[0m"
 fi
 
-# ── UI Single-Frame Helpers ──────────────────────────────────────
+# ── Pixel-Perfect Closed Box Helpers ─────────────────────────────
+box_line() {
+  local text="${1:-}"
+  local plain
+  plain=$(printf "%b" "$text" | sed "s/\x1B\[[0-9;]*[a-zA-Z]//g")
+  local len=${#plain}
+  local pad=$(( 54 - len ))
+  (( pad < 0 )) && pad=0
+  local fill=""
+  for (( i=0; i<pad; i++ )); do fill+=" "; done
+  printf "${C1}│${N} %b%s ${C1}│${N}\n" "$text" "$fill"
+}
+
 banner() {
   clear
   echo -e ""
   echo -e "${C1}╭──────────────────────────────────────────────────────────╮${N}"
-  echo -e "${C1}│   ${W}🎓  U D E M Y   C O U R S E   D O W N L O A D E R${C1}      │${N}"
-  echo -e "${C1}│       ${C2}v4.0  •  Created by Kadiri Emmanuel${C1}                │${N}"
+  box_line "  ${W}🎓  U D E M Y   C O U R S E   D O W N L O A D E R${N}      "
+  box_line "      ${C2}v4.0  •  Created by Kadiri Emmanuel${N}                "
   echo -e "${C1}├──────────────────────────────────────────────────────────┤${N}"
 }
 
 sec() {
   local title="$1"
   local step="${2:-}"
-  echo -e "${C1}│${N}"
+  box_line ""
   if [[ -n "$step" ]]; then
-    echo -e "${C1}│${N}  ${C2}[ STEP ${step} ]${N}  ${W}${title}${N}"
+    box_line "${C2}[ STEP ${step} ]${N}  ${W}${title}${N}"
   else
-    echo -e "${C1}│${N}  ${W}${title}${N}"
+    box_line "${W}${title}${N}"
   fi
-  echo -e "${C1}│${N}"
+  box_line ""
 }
 
 card_end() {
-  echo -e "${C1}│${N}"
   echo -e "${C1}╰──────────────────────────────────────────────────────────╯${N}"
   echo -e ""
 }
 
-ok()   { echo -e "${C1}│${N}  ${G}✔${N}  ${W}$*${N}"; }
-info() { echo -e "${C1}│${N}  ${C1}➤${N}  ${D}$*${N}"; }
-warn() { echo -e "${C1}│${N}  ${Y}⚠${N}  ${Y}$*${N}"; }
-err()  { echo -e "${C1}│${N}  ${R}✘${N}  ${R}$*${N}" >&2; }
+ok()   { box_line "  ${G}✔${N}  ${W}$*${N}"; }
+info() { box_line "  ${C1}➤${N}  ${D}$*${N}"; }
+warn() { box_line "  ${Y}⚠${N}  ${Y}$*${N}"; }
+err()  { box_line "  ${R}✘${N}  ${R}$*${N}"; }
 die()  { err "$*"; card_end; exit 1; }
-line() { echo -e "${C1}│${N}  ${D}─────────────────────────────────────────────────────────${N}"; }
-br()   { echo -e "${C1}│${N}"; }
+line() { echo -e "${C1}├──────────────────────────────────────────────────────────┤${N}"; }
+br()   { box_line ""; }
 
 ask() {
   local _var="$1" _msg="$2" _def="${3:-}"
   local _hint=""
   [[ -n "$_def" ]] && _hint=" ${D}[${_def}]${N}"
-  echo -en "${C1}│${N}  ${Y}→${N}  ${W}${_msg}${N}${_hint}: "
+  echo -en "  ${Y}→${N}  ${W}${_msg}${N}${_hint}: "
   local _val
   read -r _val
   [[ -z "$_val" && -n "$_def" ]] && _val="$_def"
@@ -167,40 +178,38 @@ select_browser() {
 
   local i=1
   for name in "${names[@]}"; do
-    echo -e "${C1}│${N}    ${C1}[$i]${N}  $name"
+    box_line "    ${C1}[$i]${N}  $name"
     ((i++))
   done
   line; br
+  card_end
 
   local choice
   while true; do
-    echo -en "${C1}│${N}  ${Y}→${N}  Choose [1-$((i-1))]: "
-    read -r choice
+    ask choice "Choose option [1-$((i-1))]"
     if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice < i )); then
       local idx=$(( choice - 1 ))
       BROWSER="${keys[$idx]}"
       break
     fi
-    err "Invalid option. Pick a number from the list."
+    echo -e "  ${R}✘  Invalid option. Pick a number from the list.${N}"
   done
 
   if [[ "$BROWSER" == "custom" ]]; then
+    banner
+    sec "Custom Cookies File" "2/5"
+    info "1. Install 'Get cookies.txt LOCALLY' extension in Chrome/Firefox"
+    info "2. Log into udemy.com"
+    info "3. Export cookies for udemy.com to cookies.txt"
     br
-    info "How to get cookies.txt:"
-    info "  1. Install 'Get cookies.txt LOCALLY' extension in Chrome/Firefox"
-    info "  2. Log into udemy.com"
-    info "  3. Click extension → Export cookies for udemy.com"
-    br
+    card_end
     while true; do
       ask COOKIES_FILE "Path to cookies.txt file"
       COOKIES_FILE="${COOKIES_FILE/#\~/$HOME}"
-      [[ -f "$COOKIES_FILE" ]] && { ok "Cookies file: $COOKIES_FILE"; break; }
-      err "File not found. Try again."
+      [[ -f "$COOKIES_FILE" ]] && break
+      echo -e "  ${R}✘  File not found. Try again.${N}"
     done
-  else
-    ok "Browser session selected: ${W}${names[$((choice-1))]}${N}"
   fi
-  card_end
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -214,6 +223,7 @@ get_url() {
   info "1. Open Udemy in your browser and go to your course."
   info "2. Copy the URL from your address bar and paste it below."
   br
+  card_end
 
   while true; do
     ask COURSE_URL "Paste Udemy Course URL"
@@ -222,13 +232,11 @@ get_url() {
       if [[ "$COURSE_URL" =~ (https?://(www\.)?udemy\.com/course/[^/?#]+) ]]; then
         COURSE_URL="${BASH_REMATCH[1]}/learn/"
       fi
-      ok "Course URL: ${W}$COURSE_URL${N}"
       break
     else
-      err "Invalid Udemy course URL. Must contain 'udemy.com/course/'"
+      echo -e "  ${R}✘  Invalid Udemy course URL. Must contain 'udemy.com/course/'${N}"
     fi
   done
-  card_end
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -242,47 +250,40 @@ get_options() {
   banner
   sec "Download Preferences" "4/5"
 
+  box_line "  ${W}Video quality options:${N}"
+  box_line "    ${C1}[1]${N}  Best available (Recommended)"
+  box_line "    ${C1}[2]${N}  1080p Full HD"
+  box_line "    ${C1}[3]${N}  720p HD (Smaller file size)"
+  box_line "    ${C1}[4]${N}  480p SD (Low bandwidth)"
+  line
+  box_line "  ${W}Subtitles preference:${N}"
+  box_line "    ${C1}[1]${N}  Both embedded in MP4 AND external .vtt"
+  box_line "    ${C1}[2]${N}  Embedded in MP4 only"
+  box_line "    ${C1}[3]${N}  Separate .vtt file only"
+  box_line "    ${C1}[4]${N}  No subtitles"
+  card_end
+
   ask OUTPUT_DIR "Save downloads to" "$OUTPUT_DIR"
   OUTPUT_DIR="${OUTPUT_DIR/#\~/$HOME}"
   mkdir -p "$OUTPUT_DIR" || die "Cannot create directory: $OUTPUT_DIR"
-  ok "Output directory: ${W}$OUTPUT_DIR${N}"
-  br
 
-  echo -e "${C1}│${N}  ${W}Video quality:${N}"
-  echo -e "${C1}│${N}    ${C1}[1]${N}  Best available (Recommended)"
-  echo -e "${C1}│${N}    ${C1}[2]${N}  1080p Full HD"
-  echo -e "${C1}│${N}    ${C1}[3]${N}  720p HD (Smaller file size)"
-  echo -e "${C1}│${N}    ${C1}[4]${N}  480p SD (Low bandwidth)"
-  line
   local q
-  echo -en "${C1}│${N}  ${Y}→${N}  Choose [1-4]: "
-  read -r q
+  ask q "Video quality [1-4]" "1"
   case "$q" in
     2) QUALITY="1080p" ;;
     3) QUALITY="720p"  ;;
     4) QUALITY="480p"  ;;
     *) QUALITY="best"  ;;
   esac
-  ok "Quality setting: ${W}$QUALITY${N}"
-  br
 
-  echo -e "${C1}│${N}  ${W}Subtitles preference:${N}"
-  echo -e "${C1}│${N}    ${C1}[1]${N}  Both embedded in MP4 AND saved as separate .vtt file (Recommended)"
-  echo -e "${C1}│${N}    ${C1}[2]${N}  Embedded in MP4 only (Clean single file)"
-  echo -e "${C1}│${N}    ${C1}[3]${N}  Separate .vtt file only"
-  echo -e "${C1}│${N}    ${C1}[4]${N}  No subtitles"
-  line
   local s
-  echo -en "${C1}│${N}  ${Y}→${N}  Choose [1-4]: "
-  read -r s
+  ask s "Subtitle mode [1-4]" "1"
   case "$s" in
     2) SUBTITLE_MODE="embed" ;;
     3) SUBTITLE_MODE="external" ;;
     4) SUBTITLE_MODE="none" ;;
     *) SUBTITLE_MODE="both" ;;
   esac
-  ok "Subtitle mode: ${W}$SUBTITLE_MODE${N}"
-  card_end
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -329,22 +330,17 @@ verify_session() {
     elif grep -qi "not free\|pay for it" "$TEST_LOG"; then
       err "This course is not enrolled or purchased on this Udemy account."
     else
-      err "Error details: $(tail -n 2 "$TEST_LOG")"
+      err "Error details: $(tail -n 1 "$TEST_LOG")"
     fi
     rm -f "$TEST_LOG"
+    card_end
 
-    echo -e "${C1}│${N}  ${W}What would you like to do?${N}"
-    echo -e "${C1}│${N}    ${C1}[1]${N}  Retry session check (after refreshing browser)"
-    echo -e "${C1}│${N}    ${C1}[2]${N}  Switch browser / cookies.txt"
-    echo -e "${C1}│${N}    ${C1}[3]${N}  Exit"
-    line
     local choice
-    echo -en "${C1}│${N}  ${Y}→${N}  Choose [1-3]: "
-    read -r choice
+    ask choice "Choose [1] Retry  [2] Switch Auth  [3] Exit" "1"
     case "$choice" in
-      2) card_end; select_browser; verify_session ;;
-      3) info "Exiting."; card_end; exit 1 ;;
-      *) card_end; verify_session ;;
+      2) select_browser; verify_session ;;
+      3) exit 1 ;;
+      *) verify_session ;;
     esac
   fi
 }
@@ -352,21 +348,20 @@ verify_session() {
 run_download() {
   banner
   sec "Configuration Summary"
-  echo -e "${C1}│${N}  ${C1}•${N} ${W}Course URL  :${N} ${D}$COURSE_URL${N}"
+  box_line "  ${C1}•${N} ${W}Course URL  :${N} ${D}${COURSE_URL:0:36}...${N}"
   if [[ "$BROWSER" == "custom" ]]; then
-    echo -e "${C1}│${N}  ${C1}•${N} ${W}Auth Source :${N} ${D}cookies.txt → $COOKIES_FILE${N}"
+    box_line "  ${C1}•${N} ${W}Auth Source :${N} ${D}cookies.txt → $COOKIES_FILE${N}"
   else
-    echo -e "${C1}│${N}  ${C1}•${N} ${W}Auth Source :${N} ${D}Browser → $BROWSER${N}"
+    box_line "  ${C1}•${N} ${W}Auth Source :${N} ${D}Browser → $BROWSER${N}"
   fi
-  echo -e "${C1}│${N}  ${C1}•${N} ${W}Video Quality:${N} ${D}$QUALITY${N}"
-  echo -e "${C1}│${N}  ${C1}•${N} ${W}Subtitles   :${N} ${D}$SUBTITLE_MODE${N}"
-  echo -e "${C1}│${N}  ${C1}•${N} ${W}Save Folder :${N} ${D}$OUTPUT_DIR${N}"
-  line
-  br
+  box_line "  ${C1}•${N} ${W}Video Quality:${N} ${D}$QUALITY${N}"
+  box_line "  ${C1}•${N} ${W}Subtitles   :${N} ${D}$SUBTITLE_MODE${N}"
+  box_line "  ${C1}•${N} ${W}Save Folder :${N} ${D}${OUTPUT_DIR:0:36}${N}"
+  card_end
 
-  echo -en "${C1}│${N}  ${Y}→${N}  ${W}Start course download now? [Y/n]:${N} "
-  local confirm; read -r confirm
-  [[ "${confirm,,}" == "n" ]] && { info "Download cancelled by user."; card_end; exit 0; }
+  local confirm
+  ask confirm "Start course download now? [Y/n]" "y"
+  [[ "${confirm,,}" == "n" ]] && { echo -e "  Download cancelled."; exit 0; }
 
   # ── Build quality format string ───────────────────────────
   local fmt
@@ -548,20 +543,16 @@ run_download() {
   br; br
   if [[ "$exit_code" -eq 0 ]]; then
     banner
-    echo -e "${C1}│${N}   ${G}🎉  ALL LECTURES DOWNLOADED & MERGED SUCCESSFULLY!     ${N}"
-    echo -e "${C1}│${N}"
-    echo -e "${C1}│${N}   ${W}📁 Saved to  :${N} ${D}${OUTPUT_DIR}${N}"
-    echo -e "${C1}│${N}   ${W}👤 Author    :${N} ${C2}Kadiri Emmanuel${N}"
-    echo -e "${C1}│${N}   ${W}⚡ Status    :${N} ${G}Verified & Ready for Offline Playback${N}"
+    box_line "  ${G}🎉  ALL LECTURES DOWNLOADED & MERGED SUCCESSFULLY!${N}"
+    box_line ""
+    box_line "  ${W}📁 Saved to  :${N} ${D}${OUTPUT_DIR:0:36}${N}"
+    box_line "  ${W}👤 Author    :${N} ${C2}Kadiri Emmanuel${N}"
+    box_line "  ${W}⚡ Status    :${N} ${G}Verified & Ready for Offline Playback${N}"
     card_end
   else
-    err "Download process encountered errors (exit code $exit_code)."
-    err "Log details saved in: $LOG"
-    br
-    info "Common fixes:"
-    info "  1. Open Udemy in browser ($BROWSER) and click any lecture to refresh session."
-    info "  2. Confirm you are enrolled in this course."
-    info "  3. Run: yt-dlp --update"
+    banner
+    err "Download process encountered errors."
+    info "Log audit file saved in: $LOG"
     card_end
     exit 1
   fi
