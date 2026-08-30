@@ -1,0 +1,17 @@
+{
+  "outputDir": "./downloads",
+  "quality": "1080",
+  "concurrency": 4,
+  "retryAttempts": 5,
+  "retryDelay": 3000,
+  "subtitles": true,
+  "subtitleLang": "en",
+  "embedSubtitles": false,
+  "downloadAssets": true,
+  "downloadArticles": true,
+  "downloadQuizzes": true,
+  "skipExisting": true,
+  "logLevel": "info",
+  "ytDlpPath": "/home/kadiri-emmanuel/.local/bin/yt-dlp",
+  "ffmpegPath": "/home/kadiri-emmanuel/.local/bin/ffmpeg"
+}

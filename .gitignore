@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Production & Build output
+downloads/
+dist/
+build/
+
+# Logs & Debug
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Environment & Credentials
+.env
+.env.local
+.env.*.local
+*.cookies.txt
+udemy.cookies.txt
+
+# Databases & Cache
+*.sqlite
+*.db
+.cache/
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+

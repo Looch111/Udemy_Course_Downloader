@@ -1,0 +1,46 @@
+{
+  "name": "udemy-course-downloader",
+  "version": "2.0.0",
+  "description": "Professional Node.js CLI tool for downloading purchased Udemy courses",
+  "main": "src/cli/index.js",
+  "bin": {
+    "udemy-dl": "./src/cli/index.js"
+  },
+  "scripts": {
+    "start": "node --no-warnings src/cli/index.js",
+    "dev": "nodemon --exec \"node --no-warnings\" src/cli/index.js",
+    "help": "node --no-warnings src/cli/index.js --help"
+  },
+  "keywords": [
+    "udemy",
+    "downloader",
+    "course",
+    "cli",
+    "yt-dlp"
+  ],
+  "author": "Kadiri Emmanuel",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "better-sqlite3": "^12.11.1",
+    "chalk": "^4.1.2",
+    "cli-progress": "^3.12.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "fs-extra": "^11.2.0",
+    "inquirer": "^8.2.6",
+    "log-update": "^4.0.0",
+    "node-fetch": "^2.7.0",
+    "p-queue": "^6.6.2",
+    "sanitize-filename": "^1.6.3",
+    "tough-cookie": "^4.1.4",
+    "winston": "^3.13.0",
+    "yt-dlp-wrap": "^2.3.12"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
