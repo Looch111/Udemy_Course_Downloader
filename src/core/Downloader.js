@@ -437,6 +437,8 @@ class Downloader {
     }
 
     return null;
+  }
+
   /**
    * Embed subtitle track directly into MP4 video file and remove external subtitle file.
    * @param {string} videoPath
