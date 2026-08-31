@@ -207,13 +207,40 @@ class Downloader {
     courseId, lecture, lectureDir, lectureName,
     authCredentials, resolvedBrowser, cfg, assetDl, subtitleHandler, onProgress,
   }) {
-    // Fetch detailed lecture data to get fresh stream URLs
-    const detail = await withRetry(
-      () => this.client.get(ENDPOINTS.lectureDetail(courseId, lecture.id)),
-      { attempts: cfg.retryAttempts, delay: cfg.retryDelay, label: `Lecture fetch [${lecture.title}]` },
-    );
+    // Check if asset stream/download URLs were already fetched in bulk during curriculum parsing
+    let asset = lecture.asset?.rawAsset || lecture.asset || {};
+    const hasStreams =
+      (asset.stream_urls?.Video?.length > 0) ||
+      (asset.streamUrls?.Video?.length > 0) ||
+      (asset.download_urls?.Video?.length > 0) ||
+      (asset.downloadUrls?.Video?.length > 0) ||
+      (asset.stream_urls?.hls?.length > 0) ||
+      (asset.streamUrls?.hls?.length > 0);
 
-    const asset = detail.asset || {};
+    // Only fetch single lecture detail if stream data was missing from bulk curriculum
+    if (!hasStreams && lecture.isVideo) {
+      try {
+        const detail = await withRetry(
+          () => this.client.get(ENDPOINTS.lectureDetail(courseId, lecture.id)),
+          { attempts: cfg.retryAttempts, delay: cfg.retryDelay, label: `Lecture fetch [${lecture.title}]` },
+        );
+        if (detail && detail.asset) {
+          asset = detail.asset;
+        }
+      } catch (err) {
+        logger.debug(`Primary lecture detail fetch failed for "${lecture.title}": ${err.message}. Trying direct course fallback...`);
+        try {
+          const fallbackUrl = `https://www.udemy.com/api-2.0/courses/${courseId}/lectures/${lecture.id}/?fields[lecture]=id,title,asset,supplementary_assets&fields[asset]=id,asset_type,download_urls,stream_urls,external_url,slide_urls,filename,captions`;
+          const detail = await this.client.get(fallbackUrl);
+          if (detail && detail.asset) {
+            asset = detail.asset;
+          }
+        } catch (fallbackErr) {
+          logger.warn(`Lecture detail fetch failed for "${lecture.title}": ${fallbackErr.message}`);
+        }
+      }
+    }
+
     let status = 'downloaded';
 
     if (lecture.isVideo) {
@@ -251,7 +278,7 @@ class Downloader {
 
       // ── Subtitles ────────────────────────────────────────────────────────
       if (cfg.subtitles) {
-        const captions = asset.captions || [];
+        const captions = asset.captions || lecture.asset?.captions || [];
         await subtitleHandler.download(captions, lectureDir, lectureName);
       }
     } else if (lecture.isArticle) {
@@ -320,6 +347,29 @@ class Downloader {
   }
 
   /**
+   * Helper to parse height resolution from Udemy stream/download entry.
+   * Handles Udemy's legacy code '1' for 1080p, explicit height numbers, and URL patterns.
+   */
+  _parseStreamHeight(entry) {
+    if (!entry) return 0;
+    const label = String(entry.label || '').trim();
+    const file = String(entry.file || entry.url || '').toLowerCase();
+
+    if (label === '1' || label === '1080' || file.includes('1080') || file.includes('syndication_1080')) {
+      return 1080;
+    }
+    if (label === '2160' || file.includes('2160')) return 2160;
+    if (label === '1440' || file.includes('1440')) return 1440;
+    if (label === '720' || file.includes('720') || file.includes('webhd_720')) return 720;
+    if (label === '480' || file.includes('480')) return 480;
+    if (label === '360' || file.includes('360') || file.includes('webhd.')) return 360;
+
+    const numeric = parseInt(label, 10);
+    if (!isNaN(numeric) && numeric > 1) return numeric;
+    return 0;
+  }
+
+  /**
    * Resolve the best stream URL from an asset for the configured quality.
    * Tries download_urls first, then stream_urls, HLS, media_sources, and external_url.
    * @param {object} asset
@@ -327,61 +377,59 @@ class Downloader {
    * @returns {string|null}
    */
   _resolveStreamUrl(asset, quality) {
-    const targetHeight = parseInt(quality, 10);
+    const targetHeight = quality === 'best' ? 9999 : (quality === 'worst' ? 1 : parseInt(quality, 10));
+
+    const getStreams = (obj, key1, key2) => obj?.[key1] || obj?.[key2] || null;
 
     // 1. Prefer direct download URLs (no DRM)
-    const dlUrls = asset.download_urls?.Video;
+    const dlUrlsObj = getStreams(asset, 'download_urls', 'downloadUrls');
+    const dlUrls = dlUrlsObj?.Video;
     if (dlUrls && Array.isArray(dlUrls) && dlUrls.length > 0) {
-      const sorted = dlUrls
-        .filter((u) => u.label || u.file)
-        .sort((a, b) => {
-          const aH = parseInt(a.label || '0', 10);
-          const bH = parseInt(b.label || '0', 10);
-          return bH - aH;
-        });
+      const sorted = [...dlUrls]
+        .filter((u) => u.label || u.file || u.url)
+        .sort((a, b) => this._parseStreamHeight(b) - this._parseStreamHeight(a));
 
-      const match = sorted.find((u) => parseInt(u.label || '0', 10) <= targetHeight);
+      const match = sorted.find((u) => this._parseStreamHeight(u) <= targetHeight);
       if (match) return match.file || match.url;
       if (sorted[0]) return sorted[0].file || sorted[0].url;
     }
 
     // 2. Fall back to stream URLs (Video)
-    const stUrls = asset.stream_urls?.Video;
+    const stUrlsObj = getStreams(asset, 'stream_urls', 'streamUrls');
+    const stUrls = stUrlsObj?.Video;
     if (stUrls && Array.isArray(stUrls) && stUrls.length > 0) {
-      const sorted = stUrls
-        .sort((a, b) => {
-          const aH = parseInt(a.label || '0', 10);
-          const bH = parseInt(b.label || '0', 10);
-          return bH - aH;
-        });
-      const match = sorted.find((u) => parseInt(u.label || '0', 10) <= targetHeight);
+      const sorted = [...stUrls]
+        .filter((u) => u.label || u.file || u.url)
+        .sort((a, b) => this._parseStreamHeight(b) - this._parseStreamHeight(a));
+
+      const match = sorted.find((u) => this._parseStreamHeight(u) <= targetHeight);
       if (match) return match.file || match.url;
       if (sorted[0]) return sorted[0].file || sorted[0].url;
     }
 
     // 3. Fall back to HLS stream URLs
-    const hlsUrls = asset.stream_urls?.hls;
+    const hlsUrls = stUrlsObj?.hls;
     if (hlsUrls && Array.isArray(hlsUrls) && hlsUrls.length > 0) {
-      const sorted = hlsUrls
-        .sort((a, b) => {
-          const aH = parseInt(a.label || '0', 10);
-          const bH = parseInt(b.label || '0', 10);
-          return bH - aH;
-        });
-      const match = sorted.find((u) => parseInt(u.label || '0', 10) <= targetHeight);
+      const sorted = [...hlsUrls]
+        .filter((u) => u.label || u.file || u.url)
+        .sort((a, b) => this._parseStreamHeight(b) - this._parseStreamHeight(a));
+
+      const match = sorted.find((u) => this._parseStreamHeight(u) <= targetHeight);
       if (match) return match.file || match.url;
       if (hlsUrls[0]) return hlsUrls[0].file || hlsUrls[0].url;
     }
 
     // 4. Media sources array
-    if (asset.media_sources && Array.isArray(asset.media_sources) && asset.media_sources.length > 0) {
-      const first = asset.media_sources[0];
+    const mediaSources = getStreams(asset, 'media_sources', 'mediaSources');
+    if (mediaSources && Array.isArray(mediaSources) && mediaSources.length > 0) {
+      const first = mediaSources[0];
       if (first && (first.src || first.file)) return first.src || first.file;
     }
 
     // 5. External URL
-    if (asset.external_url) {
-      return asset.external_url;
+    const externalUrl = asset.external_url || asset.externalUrl;
+    if (externalUrl) {
+      return externalUrl;
     }
 
     return null;

@@ -229,10 +229,12 @@ except Exception as e:
   async verifyAuth() {
     try {
       const data = await this.get(ENDPOINTS.me);
+      const name = data.display_name || data.title || data.name || 'Udemy User';
+      const email = data.email ? `<${data.email}>` : '';
       return {
         id: data.id,
-        name: `${data.display_name}`,
-        email: data.email,
+        name,
+        email,
       };
     } catch (err) {
       throw new Error(`Authentication failed: ${err.message}`);

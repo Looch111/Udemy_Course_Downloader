@@ -154,7 +154,10 @@ class VideoDownloader {
    * @returns {string[]}
    */
   _buildArgs(url, outputPath) {
-    const format = QUALITY_FORMATS[this.quality] || QUALITY_FORMATS['1080'];
+    const isDirectMp4 = url.includes('.mp4?') || url.includes('.mp4');
+    const format = isDirectMp4
+      ? 'b/best'
+      : (QUALITY_FORMATS[this.quality] || QUALITY_FORMATS['1080']);
 
     const args = [
       url,
@@ -168,11 +171,14 @@ class VideoDownloader {
       '--fragment-retries', '3',
       '--concurrent-fragments', '4',
       '--add-metadata',
-      '--embed-thumbnail',
       '--progress',
       '--newline',               // One progress line per update (parseable)
       '--no-warnings',
     ];
+
+    if (!isDirectMp4) {
+      args.push('--embed-thumbnail');
+    }
 
     if (this.ffmpegPath && this.ffmpegPath !== 'ffmpeg') {
       args.push('--ffmpeg-location', this.ffmpegPath);

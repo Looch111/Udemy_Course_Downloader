@@ -232,6 +232,7 @@ class CourseParser {
         externalUrl: asset.external_url || null,
         filename: asset.filename || null,
         captions: asset.captions || [],
+        rawAsset: asset,
       },
       supplementaryAssets: (item.supplementary_assets || []).map((sa) => ({
         id: sa.id,
