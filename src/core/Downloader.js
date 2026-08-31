@@ -278,8 +278,12 @@ class Downloader {
 
       // ── Subtitles ────────────────────────────────────────────────────────
       if (cfg.subtitles) {
+        const fs = require('fs-extra');
         const captions = asset.captions || lecture.asset?.captions || [];
-        await subtitleHandler.download(captions, lectureDir, lectureName);
+        const subtitlePath = await subtitleHandler.download(captions, lectureDir, lectureName);
+        if (cfg.embedSubtitles && subtitlePath && (await fs.pathExists(videoPath))) {
+          await this._embedSubtitles(videoPath, subtitlePath, cfg.ffmpegPath);
+        }
       }
     } else if (lecture.isArticle) {
       // ── Article — save as HTML if enabled ────────────────────────────────
@@ -433,6 +437,47 @@ class Downloader {
     }
 
     return null;
+  /**
+   * Embed subtitle track directly into MP4 video file and remove external subtitle file.
+   * @param {string} videoPath
+   * @param {string} subtitlePath
+   * @param {string} ffmpegPath
+   */
+  async _embedSubtitles(videoPath, subtitlePath, ffmpegPath = 'ffmpeg') {
+    const fs = require('fs-extra');
+    const { execFile } = require('child_process');
+
+    if (!(await fs.pathExists(videoPath)) || !(await fs.pathExists(subtitlePath))) {
+      return;
+    }
+
+    const tempOutputPath = videoPath.replace(/\.mp4$/i, '.tmp_embed.mp4');
+
+    const args = [
+      '-y',
+      '-i', videoPath,
+      '-i', subtitlePath,
+      '-c', 'copy',
+      '-c:s', 'mov_text',
+      '-metadata:s:s:0', 'language=eng',
+      tempOutputPath,
+    ];
+
+    await new Promise((resolve) => {
+      execFile(ffmpegPath || 'ffmpeg', args, async (err) => {
+        if (!err && (await fs.pathExists(tempOutputPath))) {
+          await fs.move(tempOutputPath, videoPath, { overwrite: true });
+          await fs.remove(subtitlePath);
+          logger.debug(`Subtitles embedded into single video file: ${path.basename(videoPath)}`);
+        } else {
+          logger.warn(`Failed to embed subtitle with ffmpeg: ${err?.message || 'unknown error'}`);
+          if (await fs.pathExists(tempOutputPath)) {
+            await fs.remove(tempOutputPath);
+          }
+        }
+        resolve();
+      });
+    });
   }
 
   /**
