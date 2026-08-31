@@ -120,7 +120,7 @@ url = '${urlEscaped}'
 cookie = '${cookieEscaped}'
 token = '${tokenEscaped}'
 
-def get_headers(use_token):
+def get_headers(use_token, include_cookies=True):
     headers = {
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
         'Accept': 'application/json, text/plain, */*',
@@ -128,7 +128,7 @@ def get_headers(use_token):
         'Referer': 'https://www.udemy.com/',
         'X-Requested-With': 'XMLHttpRequest',
     }
-    if cookie:
+    if include_cookies and cookie:
         headers['Cookie'] = cookie
     if use_token and token:
         headers['Authorization'] = 'Bearer ' + token
@@ -138,13 +138,20 @@ def fetch_content():
     # Attempt 1: curl_cffi for browser TLS fingerprint impersonation (bypasses Cloudflare)
     try:
         from curl_cffi import requests
-        h = get_headers(use_token=bool(token))
-        r = requests.get(url, headers=h, impersonate="chrome124", timeout=20)
+        # If token exists, try token-only header FIRST (avoids cross-IP Cloudflare cookie block)
+        if token:
+            h_token = get_headers(use_token=True, include_cookies=False)
+            r = requests.get(url, headers=h_token, impersonate="chrome124", timeout=20)
+            if r.status_code == 200:
+                return r.content
+
+        # Fallback to cookies if token-only wasn't 200
+        h_all = get_headers(use_token=bool(token), include_cookies=True)
+        r = requests.get(url, headers=h_all, impersonate="chrome124", timeout=20)
         if r.status_code == 200:
             return r.content
         if cookie and r.status_code in (401, 403):
-            # Try without token header (cookie only)
-            h_cookie = get_headers(use_token=False)
+            h_cookie = get_headers(use_token=False, include_cookies=True)
             r2 = requests.get(url, headers=h_cookie, impersonate="chrome124", timeout=20)
             if r2.status_code == 200:
                 return r2.content
