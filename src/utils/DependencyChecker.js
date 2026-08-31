@@ -71,6 +71,18 @@ class DependencyChecker {
     const pythonCmd = this._commandExists('python3') || this._commandExists('python');
     if (pythonCmd) {
       console.log(chalk.dim(`  ✔ Python 3     : Found (${pythonCmd})`));
+      
+      // Attempt auto-install of curl_cffi for Cloudflare TLS bypass on cloud servers
+      try {
+        execSync(`${pythonCmd} -c "import curl_cffi"`, { stdio: 'ignore' });
+      } catch {
+        try {
+          console.log(chalk.yellow('  ⬇ Installing Cloudflare bypass helper (curl_cffi)...'));
+          execSync(`${pythonCmd} -m pip install --break-system-packages -q curl_cffi`, { stdio: 'ignore' });
+          console.log(chalk.green('  ✔ Cloudflare bypass helper installed!'));
+        } catch { /* ignore if pip unavailable */ }
+      }
+
       return pythonCmd;
     }
 

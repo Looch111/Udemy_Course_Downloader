@@ -114,13 +114,13 @@ class UdemyClient {
     const urlEscaped = fullTarget.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
     const pyScript = `
-import urllib.request, urllib.parse, json, ssl, sys
+import json, sys
 
 url = '${urlEscaped}'
 cookie = '${cookieEscaped}'
 token = '${tokenEscaped}'
 
-def make_request(use_token):
+def get_headers(use_token):
     headers = {
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
         'Accept': 'application/json, text/plain, */*',
@@ -132,33 +132,47 @@ def make_request(use_token):
         headers['Cookie'] = cookie
     if use_token and token:
         headers['Authorization'] = 'Bearer ' + token
-    req = urllib.request.Request(url, headers=headers)
-    ctx = ssl.create_default_context()
-    with urllib.request.urlopen(req, timeout=20, context=ctx) as r:
-        return r.read()
+    return headers
 
-try:
-    # Prefer cookie-only auth (works with Udemy session cookies, avoids token 403)
+def fetch_content():
+    # Attempt 1: curl_cffi for browser TLS fingerprint impersonation (bypasses Cloudflare)
+    try:
+        from curl_cffi import requests
+        h = get_headers(use_token=bool(token))
+        r = requests.get(url, headers=h, impersonate="chrome124", timeout=20)
+        if r.status_code == 200:
+            return r.content
+        if cookie and r.status_code in (401, 403):
+            # Try without token header (cookie only)
+            h_cookie = get_headers(use_token=False)
+            r2 = requests.get(url, headers=h_cookie, impersonate="chrome124", timeout=20)
+            if r2.status_code == 200:
+                return r2.content
+    except Exception:
+        pass
+
+    # Attempt 2: Standard urllib fallback
+    import urllib.request, ssl
+    def make_urllib(use_token):
+        req = urllib.request.Request(url, headers=get_headers(use_token))
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=20, context=ctx) as resp:
+            return resp.read()
+
     if cookie:
         try:
-            result = make_request(use_token=False)
-            sys.stdout.buffer.write(result)
+            return make_urllib(use_token=False)
         except urllib.error.HTTPError as e:
             if e.code in (401, 403) and token:
-                # Retry with token if cookie-only failed
-                result = make_request(use_token=True)
-                sys.stdout.buffer.write(result)
-            else:
-                raise
-    else:
-        result = make_request(use_token=bool(token))
-        sys.stdout.buffer.write(result)
-except urllib.error.HTTPError as e:
-    body = e.read().decode('utf-8', errors='replace')[:300]
-    err_json = json.dumps({'__error__': True, 'status': e.code, 'detail': body})
-    sys.stdout.buffer.write(err_json.encode('utf-8'))
+                return make_urllib(use_token=True)
+            raise
+    return make_urllib(use_token=bool(token))
+
+try:
+    content = fetch_content()
+    sys.stdout.buffer.write(content)
 except Exception as e:
-    err_json = json.dumps({'__error__': True, 'status': 0, 'detail': str(e)})
+    err_json = json.dumps({'__error__': True, 'status': getattr(e, 'code', 0), 'detail': str(e)})
     sys.stdout.buffer.write(err_json.encode('utf-8'))
 `;
 
