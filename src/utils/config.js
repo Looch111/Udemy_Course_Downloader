@@ -45,14 +45,24 @@ function getConfig() {
     downloadQuizzes: process.env.DOWNLOAD_QUIZZES  !== undefined ? process.env.DOWNLOAD_QUIZZES  === 'true' : (defaults.downloadQuizzes  !== false),
     skipExisting:  defaults.skipExisting       !== false,
     logLevel:      process.env.LOG_LEVEL       || defaults.logLevel     || 'info',
-    ytDlpPath:     defaults.ytDlpPath          || 'yt-dlp',
-    ffmpegPath:    defaults.ffmpegPath         || 'ffmpeg',
+    ytDlpPath:     _resolveBinaryPath(defaults.ytDlpPath || 'yt-dlp'),
+    ffmpegPath:    _resolveBinaryPath(defaults.ffmpegPath || 'ffmpeg'),
     // Auth — never stored in default.json
     accessToken:   process.env.ACCESS_TOKEN    || null,
     cookieString:  process.env.COOKIE_STRING   || null,
   };
 
   return _config;
+}
+
+function _resolveBinaryPath(cmd) {
+  const isWindows = process.platform === 'win32';
+  const binName = isWindows ? `${cmd}.exe` : cmd;
+  const localBin = path.join(process.cwd(), 'bin', binName);
+  if (fs.existsSync(localBin)) {
+    return localBin;
+  }
+  return cmd;
 }
 
 /**

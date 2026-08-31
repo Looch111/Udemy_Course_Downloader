@@ -30,6 +30,7 @@ const logger = require('../utils/logger');
 const { runSetupWizard, runSettingsWizard, credentialsExist } = require('./setup');
 const UdemyClient = require('../api/UdemyClient');
 const AuthManager = require('../core/AuthManager');
+const DependencyChecker = require('../utils/DependencyChecker');
 
 // ─── Banner ───────────────────────────────────────────────────────────────────
 
@@ -180,14 +181,25 @@ async function runInteractiveDashboard() {
 // ─── Direct Command Action (CLI Mode) ────────────────────────────────────────
 
 program.action(async (options) => {
-  // If no URL is provided, always launch the interactive dashboard!
+  printBanner();
+
+  // Ensure system dependencies are installed and available
+  try {
+    const checker = new DependencyChecker();
+    const binaries = await checker.ensureDependencies();
+    applyOverrides({
+      ytDlpPath: binaries.ytDlpPath,
+      ffmpegPath: binaries.ffmpegPath,
+    });
+  } catch (depErr) {
+    logger.warn(`Dependency check warning: ${depErr.message}`);
+  }
+
+  // If no URL is provided, launch the interactive dashboard!
   if (!options.url) {
     await runInteractiveDashboard();
     return;
   }
-
-  // Otherwise, run CLI mode directly
-  printBanner();
 
   applyOverrides({
     accessToken: options.token,
