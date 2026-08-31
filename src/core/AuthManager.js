@@ -53,7 +53,13 @@ class AuthManager {
     // 2. Raw cookie string
     if (this.cookieString) {
       logger.debug('Auth: using raw cookie string.');
-      return { cookieString: this.cookieString };
+      const creds = { cookieString: this.cookieString };
+      const tokenMatch = this.cookieString.match(/(?:^|;\s*)access_token=([^;]+)/);
+      if (tokenMatch && tokenMatch[1]) {
+        creds.accessToken = tokenMatch[1].trim();
+        logger.debug('Auth: auto-extracted access_token from cookies.');
+      }
+      return creds;
     }
 
     // 3. Netscape cookies.txt file
