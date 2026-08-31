@@ -12,6 +12,6 @@
   "downloadQuizzes": false,
   "skipExisting": true,
   "logLevel": "info",
-  "ytDlpPath": "/home/kadiri-emmanuel/.local/bin/yt-dlp",
-  "ffmpegPath": "/home/kadiri-emmanuel/.local/bin/ffmpeg"
+  "ytDlpPath": "yt-dlp",
+  "ffmpegPath": "ffmpeg"
 }
